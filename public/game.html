@@ -1,0 +1,312 @@
+<!-- game.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/magic/1.1.0/magic.min.css" integrity="sha512-5KJYgPF7pe0cdJAg/9X6UdHE5cN9fqjjIi8ASyIqlcsKZdHVouNRcweLGEdtrIJJxMn+GqwJBjAurCjWOvEdJQ==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+<title>Salle de jeu</title>
+<style>
+    .player {
+        margin-bottom: 5px;
+    }
+    .notification {
+        position: fixed;
+        top: 0%;
+        left: 50%;
+        transform: translate(-50%, 0%);
+        padding: 10px 20px;
+        border-radius: 25px;
+        background-color: rgba(0, 123, 255, 0.8);
+        color: white;
+        z-index: 9999;
+        display: none;
+    }
+    .your-turn {
+        font-size: 20px;
+        font-weight: bold;
+        color: yellow; /* Change the color as needed */
+    }
+    #game {
+        width: 100%;
+        min-height: 400px;
+    }
+    .magictime {
+        -webkit-animation-duration: 0.3s;
+        animation-duration: 0.3s;
+    }
+</style>
+
+</head>
+<body class="bg-dark text-white">
+    <a href="/" class="btn btn-danger m-2 position-absolute top-0 start-0">&#62;</a>
+    <div class="container-fluid text-center py-5 d-flex flex-column">
+        <h1 class="mb-4">Salle de jeu</h1>
+        <div class="row">
+            <div class="col-md-3">
+                <div class="card bg-primary text-white">
+                    <div class="card-header">
+                        <h2 class="card-title">Joueurs:</h2>
+                    </div>
+                    <ul id="playerList" class="list-group list-group-flush bg-dark"></ul>
+                </div>
+            </div>
+            <div class="col-md-9 d-flex flex-column align-items-center justify-content-center">
+                <div id="game" class="card bg-dark mb-4 text-white  border-light">
+                    <div class="card-body magictime" id="game-group">
+                        <div class="input-group">
+                            <div class="form-floating ">
+                                <input type="text" id="gameInput" class="form-control form-control-dark bg-dark text-white d-none" placeholder=" " aria-label="Phrase à deviner" value="Lol">
+                                <label for="gameInput" class="text-dark" id="label-game-input" class="d-none">Phrase à deviner</label>
+                            </div>
+                            <button id="startGameButton" class="btn btn-success d-none" onclick="startGame()">Commencer !</button>
+                        </div>
+
+                    <div id="images"></div>
+                </div>
+            </div>
+            <div class="card bg-dark w-75">
+                <div class="card-body">
+                    <div class="form-floating mb-3">
+                        <input type="text" id="usernameInput" class="form-control form-control-dark bg-dark text-white" placeholder="Votre pseudo" value="Pseudo">
+                        <label for="usernameInput" class="text-dark">Pseudo</label>
+                    </div>
+                    <div>
+                        <button id="readyButton" class="btn btn-primary" onclick="toggleReady()">Prêt</button>
+                        <button id="changeColorButton" class="btn btn-secondary" onclick="changeColor()">Couleur Pseudo</button>
+                        <button id="copyLinkButton" class="btn btn-info" onclick="copyInvitationLink()">Copier le lien d'invitation</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div id="notification" class="notification"></div>
+
+<script>
+    function copyInvitationLink() {
+        var dummy = document.createElement("textarea");
+        document.body.appendChild(dummy);
+        dummy.value = window.location.href;
+        dummy.select();
+        document.execCommand("copy");
+        document.body.removeChild(dummy);
+
+        showNotification("Lien d'invitation copié !");
+    }
+
+    function showNotification(message) {
+        var notification = document.getElementById("notification");
+        notification.innerText = message;
+        notification.style.display = "block";
+        setTimeout(function() {
+            notification.style.display = "none";
+        }, 3000); // 3 seconds
+    }
+
+    // Example function to toggle visibility of "Your turn to play" message
+    function toggleYourTurnMessage() {
+        var yourTurnMessage = document.getElementById("yourTurnMessage");
+        yourTurnMessage.classList.toggle("d-none");
+    }
+
+    function createPlayerListItem(player, playerId) {
+        const li = document.createElement('li');
+        li.dataset.playerId = playerId;
+        li.className = 'player list-group-item bg-dark magictime vanishIn';
+        li.style.color = player.color;
+        //if player is sockerid = socket.id
+        console.log("playerId: ", playerId, "socket.id: ", socket.id)
+        if(playerId === socket.id)
+            li.innerHTML += '<i class="bi bi-person-circle text-primary"></i>';
+        if(player.host)
+            li.innerHTML += '<i class="bi bi-award text-warning"></i>';
+
+        const sanitesedUsername = player.name.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        li.innerHTML += sanitesedUsername;
+        if(player.ready)
+            li.innerHTML += '<i class="bi bi-check-lg text-success"></i>';
+        else
+            li.innerHTML += '<i class="bi bi-x-lg text-danger"></i>';
+        return li;
+    }
+
+    function updatePlayerListItem(item, player) {
+        item.style.color = player.color;
+        if(player.host)
+            item.innerHTML += '<i class="bi bi-award text-warning"></i>';
+
+        const sanitesedUsername = player.name.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        item.innerHTML += sanitesedUsername;
+        if(player.ready)
+            playerItem.innerHTML += '<i class="bi bi-check-lg text-success"></i>';
+        else
+            playerItem.innerHTML += '<i class="bi bi-x-lg text-danger"></i>';
+        
+    }
+
+    function updatePlayerList(players) {
+        const playerList = document.getElementById("playerList");
+        playerList.innerHTML = "";
+
+        Object.values(players).forEach(player => {
+            const item = createPlayerListItem(player, player.id);
+            playerList.appendChild(item);
+        });
+        //if half the players are ready, and current player is host, show start button 
+        //in players we can know current player easly by player.id === socket.id and then check if he is host player.host === true
+        const readyPlayers = Object.values(players).filter(player => player.ready).length;
+        const halfPlayers = Object.values(players).length / 2;
+        const currentPlayer = Object.values(players).find(player => player.id === socket.id);
+        const gameInput = document.getElementById('gameInput');
+        const labelGameInput = document.getElementById('label-game-input');
+        const startGameButton = document.getElementById('startGameButton');
+        const game = document.getElementById('game-group');
+        if(readyPlayers >= halfPlayers && currentPlayer.host) {
+            gameInput.classList.remove('d-none');
+            labelGameInput.classList.remove('d-none');
+            startGameButton.classList.remove('d-none');
+            game.classList.add('vanishIn');
+            game.classList.remove('vanishOut');
+        } else {
+            game.classList.add('vanishOut');
+            game.classList.remove('vanishIn');
+            gameInput.classList.add('d-none');
+            labelGameInput.classList.add('d-none');
+            startGameButton.classList.add('d-none');
+        }
+    }
+</script>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    const socket = io();
+    const roomID = window.location.pathname.split('/').pop();
+    console.log("The room ID is: ", roomID);
+    let isHost = false;
+    let isReady = false;
+    let username = '';
+    let playerCount = 0;
+
+    function startGame(){
+        socket.emit('startGame', roomID, document.getElementById('gameInput').value);
+    }
+
+    socket.on('gameStarted', (game) => {
+        console.log("Game started: ", JSON.stringify(game));
+        // Access the images div
+        const imagesDiv = document.getElementById('images');
+        imagesDiv.innerHTML = ''; // clear it
+        //imagesurl is actually several images separated by the character ';' so we split it and only use the second one
+
+        // Assuming you want to process the images from the first "turn" which is at index 0
+        if (game.images.length > 0 && game.images[0].length > 0) {
+            // Iterate over each image object in the first set of images
+            let currentImagesIndex = [];
+            currentImagesIndex.push(2);
+            let imageCounter = 0;
+            game.images[0].forEach((imageObj) => {
+
+                const img = document.createElement('img');
+                console.log("Image object: ", JSON.stringify(imageObj));
+                //const tempImageObj = imageObj.url.split(';');
+                console.log("Images: ", imageObj.url[2]);
+                //console.log("Image URL: ", tempImageObj[1]);
+                img.src = imageObj.url[2]; // Use imageObj.url
+                img.style.width = '320px';
+                img.style.height = '240px';
+                img.style.margin = '2px';
+                img.style.cursor = 'pointer';
+                imagesDiv.appendChild(img); // Append each image to the div
+                //add on click event to each image change imageObj.url[n] to imageObj.url[n++] where is 2 to imageObj.url.length
+                img.addEventListener('click', () => {
+                    if(currentImagesIndex[imageCounter] < imageObj.url.length)
+                        img.src = imageObj.url[currentImagesIndex[imageCounter]++];
+                   else{
+                        currentImagesIndex[imageCounter] = 2;
+                        img.src = imageObj.url[currentImagesIndex[imageCounter]];
+                   }
+                });
+                imageCounter++;
+            });
+        }
+    });
+
+
+    document.getElementById('usernameInput').addEventListener('input', updateUsername);
+    console.log("Emitted joinRoom with roomID: ", roomID);
+    socket.emit('joinRoom', roomID);
+    let currentPlayerIsHost = false;
+    socket.on('playerDisconnected', (players) => {
+        updatePlayerList(players);
+    });
+
+    socket.on('playerJoined', (players) => {
+        updatePlayerList(players);
+    });
+
+    socket.on('roomNotFound', () => {
+        alert('Room not found');
+        window.location.href = '/';
+    });
+
+    socket.on('playerUsernameChanged', (players) => {
+        updatePlayerList(players);
+    });
+
+    socket.on('playerReadyStatusChanged', (players) => {
+        updatePlayerList(players);
+    });
+
+    socket.on('playerColorChanged', (players) => {
+        updatePlayerList(players);
+    });
+
+    socket.on('hostChange', (players) => {
+        updatePlayerList(players);
+    });
+
+    function animatePlayerUpdate(playerList, updatedPlayer) {
+        const updatedPlayerIndex = playerList.findIndex(player => player.id === updatedPlayer.id);
+        const listItem = document.querySelector(`[data-player-id="${updatedPlayer.id}"]`);
+      
+        if (updatedPlayerIndex !== -1 && listItem) {
+          listItem.classList.add("magictime","magic", "vanishIn");
+          setTimeout(() => {
+            playerList[updatedPlayerIndex] = updatedPlayer;
+            listItem.innerText = `${updatedPlayer.name} - ${updatedPlayer.color} - ${updatedPlayer.ready}`;
+            listItem.style.color = updatedPlayer.color;
+            listItem.classList.remove("magictime", "magic", "vanishIn");
+          }, 1000);
+        }
+      }
+      
+    function updateUsername() {
+        console.log("Updating username");
+        username = document.getElementById('usernameInput').value;
+        console.log("The username is: ", username);
+        if(username === '') {
+            username = 'Player ' + playerCount;
+            document.getElementById('usernameInput').value = username;
+        }
+
+        socket.emit('updateUsername', username);
+    }
+
+    function toggleReady() {
+        isReady = !isReady;
+        socket.emit('toggleReady', isReady);
+    }
+
+    function changeColor() {
+        const colors = ['#FF5733', '#FFD700', '#6B8E23', '#4682B4', '#800080', '#00FF00', '#FF00FF', '#00FFFF'];
+        const randomColor = colors[Math.floor(Math.random() * colors.length)];
+        socket.emit('changeColor', randomColor);
+    }
+</script>
+
+</body>
+</html>
